@@ -1,0 +1,92 @@
+---
+- hosts: localhost
+  tasks:
+
+    - name: Update
+      apt:
+        update_cache: yes
+        upgrade: yes
+    
+    - name: Install MariaDB
+      apt:
+        name: '{{ item }}'
+      with_items:
+        - mariadb-server
+        - mariadb-common
+        - mariadb-client
+        - python-mysqldb
+    
+    - name: Install Apache
+      apt:
+        name: apache2
+    
+    - name: Install PHP
+      apt:
+        name: '{{ item }}'
+      with_items:
+        - php
+        - php-mysql
+        - php-xml
+        - php-gd
+        - php-gmagick
+        - php-zip
+        - graphicsmagick
+        - php-mbstring
+    
+    - name: Copy Typo3 PHP.INI
+      copy:
+        src: /home/vagrant/99-typo3.ini
+        dest: /etc/php/7.0/apache2/conf.d/99-typo3.ini
+
+    - name: Installiere 'composer'
+      apt:
+        name: '{{ item }}'
+      with_items:
+        - composer
+        - zip
+        - unzip
+
+    - name: Delete 'html' Folder
+      file:
+        path: /var/www/html
+        state: absent
+
+    - name: Change Folder Permissions
+      file:
+        path: /var/www
+        owner: www-data
+        group: www-data
+        mode: 2775
+        recurse: yes
+
+    - name: Copy 'composer.json'
+      copy:
+        src: /home/vagrant/composer.json
+        dest: /var/www/composer.json
+        owner: www-data
+        group: www-data
+        mode: 0644
+   
+    - name: Install Typo3
+      shell: 'cd /var/www && composer install && touch /var/www/html/FIRST_INSTALL'
+      become: true
+      become_user: www-data
+      become_method: su
+      become_flags: '-s /bin/bash'
+    
+    - name: Create Typo3 DB
+      mysql_db:
+        name: typo3
+        state: present
+    
+    - name: Create DB User
+      mysql_user:
+        name: typo3
+        password: 9uz890sgh8i4h90s4h
+        priv: 'typo3.*:ALL'
+        state: present
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
